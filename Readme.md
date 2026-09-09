@@ -6,6 +6,20 @@ Nine cytological grades go in, a benign/malignant probability split comes out.
 FastAPI + scikit-learn on the backend, a React single-page app on the front,
 both served through nginx from Docker Compose.
 
+## Live demo
+
+| | URL | Notes |
+| --- | --- | --- |
+| **Render** | **https://cytology-classifier.onrender.com** | HTTPS. Free tier sleeps after 15 min idle — the first request may take ~50s to wake |
+| **AWS EC2** | **http://18.215.158.33:3000** | Always on. HTTP only (no TLS certificate) |
+
+Render runs the single-container root `Dockerfile`; the EC2 box runs
+`docker compose` with the separate backend and frontend images. Same application
+either way. On the predict page, load sample **1017122** or **1000025** to see a
+malignant and a benign case.
+
+---
+
 > **⚠️ Not a medical device.** This model is trained on a public dataset for
 > educational purposes. It does not diagnose, and it is never a substitute for a
 > qualified clinician.

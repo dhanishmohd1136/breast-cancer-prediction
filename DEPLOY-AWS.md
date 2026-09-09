@@ -15,19 +15,22 @@ container. It is `linux/amd64`, matching AWS x86_64 by default.
 uvicorn binds to loopback only, so the API is reachable solely through nginx. The
 browser stays same-origin, which is why `backend/app/main.py` needs no CORS code.
 
-## Which service?
+## Which option?
 
-| | **App Runner** | **EC2 free tier** |
-| --- | --- | --- |
-| Effort | Low — managed | Medium — you run the box |
-| HTTPS | Automatic | You set it up |
-| Cost | ~$5/mo minimum | **Free for 12 months** (t3.micro) |
-| Scales | Automatically | Fixed size |
-| Project changes | None | None |
+| | **A. App Runner** | **B. EC2 (terminal)** | **C. EC2 (browser only)** |
+| --- | --- | --- | --- |
+| Needs a terminal | Yes | Yes | **No** |
+| Effort | Low — managed | Medium | **Low** |
+| HTTPS | Automatic | You set it up | You set it up |
+| Cost | ~$5/mo minimum | **Free 12 months** | **Free 12 months** |
+| Scales | Automatically | Fixed size | Fixed size |
+| Project changes | None | None | None |
 
-**Option A (App Runner)** is the closest match to what we built and what this repo
-is packaged for. **Option B (EC2)** is free for a year and runs your existing
-`docker-compose.yml` untouched.
+- **Option A** is the closest match to what this repo is packaged for, and the only
+  one that gives you HTTPS for free. It needs Docker locally to push the image.
+- **Option B** runs your existing `docker-compose.yml` on a free-tier box.
+- **Option C** is the same as B but done entirely in the AWS console — no terminal,
+  no SSH key. Start here if you would rather not touch a command line.
 
 ---
 
@@ -249,6 +252,131 @@ cd breast-cancer-prediction
 git pull
 docker compose up -d --build
 ```
+
+---
+
+# Option C — Fully browser-based (no terminal at all)
+
+Everything below happens in the AWS console. You paste one setup script into the
+launch wizard and the instance installs Docker, clones the repo and starts the app
+by itself.
+
+## What is and is not possible without a terminal
+
+| Path | Console-only? | Why |
+| --- | --- | --- |
+| **EC2 + User Data** | ✅ **yes** | The script runs on the instance at first boot |
+| App Runner from ECR | ❌ no | Pushing an image to ECR needs Docker on your machine |
+| App Runner from GitHub | ❌ no | Source builds only support managed runtimes, not our Dockerfile |
+| CodeBuild → ECR → App Runner | ✅ yes, but heavy | Several services to wire up by hand |
+
+AWS CloudShell does not help here — it has no Docker daemon, so it cannot build
+or push the image.
+
+## C1. Launch the instance
+
+**EC2 → Instances → Launch instances**
+
+| Setting | Value |
+| --- | --- |
+| Name | `cytology-classifier` |
+| AMI | **Ubuntu Server 24.04 LTS** |
+| Instance type | **t3.micro** (free-tier eligible) |
+| Key pair | *Proceed without a key pair* — you will not need SSH |
+| Storage | **20 GiB** gp3 (the 8 GiB default is too small for the build) |
+
+**Network settings → Edit → Security group**, add one inbound rule:
+
+| Type | Port | Source | Description |
+| --- | --- | --- | --- |
+| Custom TCP | **3000** | Anywhere `0.0.0.0/0` | Web app |
+
+You do not need to open port 22 at all, since nothing here uses SSH.
+
+## C2. Paste the setup script
+
+Expand **Advanced details**, scroll to the **User data** box at the very bottom,
+and paste this exactly:
+
+```bash
+#!/bin/bash
+set -eux
+exec > /var/log/app-setup.log 2>&1
+
+# 1 GB of swap - t3.micro has only 1 GB of RAM and the frontend build needs more.
+fallocate -l 1G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+apt-get update
+apt-get install -y docker.io docker-compose-v2 git
+systemctl enable --now docker
+
+cd /opt
+git clone https://github.com/dhanishmohd1136/breast-cancer-prediction.git
+cd breast-cancer-prediction
+
+# Serve on port 3000, restart automatically if the instance reboots.
+docker compose up -d --build
+
+echo "SETUP COMPLETE"
+```
+
+Then click **Launch instance**.
+
+The swap line matters: `t3.micro` has 1 GB of RAM and the Vite build will run out
+of memory without it.
+
+## C3. Wait, then open the site
+
+The first boot installs Docker and builds both images, which takes roughly
+**5–10 minutes**. There is nothing to watch — just wait.
+
+Then in **EC2 → Instances**, select the instance and copy its **Public IPv4
+address**, and open:
+
+```
+http://<PUBLIC_IP>:3000
+```
+
+Load a preset on the predict page and run the classifier to confirm the API is
+working end to end.
+
+## C4. If the page does not load
+
+Give it a few more minutes first — the build is slow on a `t3.micro`.
+
+To see what happened, use **EC2 Instance Connect**, which is a terminal *inside the
+browser*, no key pair or local terminal needed:
+
+1. Select the instance → **Connect** → **EC2 Instance Connect** tab → **Connect**
+2. In the browser shell:
+
+```bash
+sudo tail -50 /var/log/app-setup.log     # look for SETUP COMPLETE
+cd /opt/breast-cancer-prediction && sudo docker compose ps
+```
+
+Both containers should show `healthy`.
+
+For Instance Connect to work, the security group needs port 22 open — add an
+inbound SSH rule limited to **My IP** if you skipped it earlier.
+
+## C5. Keeping the same IP address
+
+A stopped and restarted instance gets a new public IP. To pin it:
+**EC2 → Elastic IPs → Allocate**, then **Actions → Associate** it with your
+instance. An Elastic IP is free while attached to a running instance.
+
+## C6. Stopping charges
+
+**EC2 → Instances → Instance state → Stop** pauses billing for compute (storage
+still bills a little). **Terminate** deletes it entirely.
+
+Release any Elastic IP you allocated afterwards — an unattached Elastic IP is
+charged.
 
 ---
 
