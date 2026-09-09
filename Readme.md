@@ -262,6 +262,20 @@ brest_cancer_prediction/
 
 ---
 
+## Deploying
+
+Step-by-step guides, both using the single-container root `Dockerfile`:
+
+- **[DEPLOY-AWS.md](DEPLOY-AWS.md)** — App Runner (managed) or EC2 free tier
+- **[DEPLOY-GCP.md](DEPLOY-GCP.md)** — Cloud Run
+
+The root `Dockerfile` packages nginx and uvicorn into one container listening on
+`$PORT` (default 8080), so it runs unmodified on App Runner, ECS, Lightsail and
+Cloud Run. Local development still uses `docker compose` with the separate
+`backend/Dockerfile` and `frontend/Dockerfile`.
+
+---
+
 ## Before deploying to a cloud host
 
 Already handled in this repo:
