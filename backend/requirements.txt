@@ -1,0 +1,15 @@
+# Pinned to the exact versions this model was trained, serialised and verified
+# against. The saved pipeline ends in SVC(probability=True); scikit-learn
+# deprecated `probability` in 1.9 and removes it in 1.11, so an unpinned
+# upgrade would break predict_proba on the next rebuild.
+# Re-pin deliberately after re-training and re-testing the model.
+
+fastapi==0.141.1
+uvicorn==0.52.4
+pandas==3.0.5
+scikit-learn==1.9.0
+joblib==1.6.0
+
+# Transitive, but pinned so the pickled pipeline loads identically.
+numpy==2.5.3
+scipy==1.18.1

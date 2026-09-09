@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cytology Classifier">
+  <title>Cytology Classifier</title>
+  <!-- Bauhaus mark: red block + blue half-disc in a hard black frame.
+       Mirrors .brand__mark in the site header. -->
+  <rect width="64" height="64" fill="#F4F1EA"/>
+  <rect x="6" y="6" width="25" height="52" fill="#E63329"/>
+  <path d="M58 6 A26 26 0 0 0 58 58 Z" fill="#1B4FA0"/>
+  <rect x="3" y="3" width="58" height="58" fill="none" stroke="#12100E" stroke-width="6"/>
+</svg>

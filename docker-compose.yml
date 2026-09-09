@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+    container_name: breast-cancer-api
+
+    # Not published to the host: the API is reachable only from the frontend's
+    # nginx over the internal network. This keeps /docs, /redoc and
+    # /openapi.json off the public internet. To debug locally, either add
+    # `ports: ["8000:8000"]` back temporarily or use `docker compose exec`.
+    expose:
+      - "8000"
+
+    # Uses the interpreter already in the image, so backend/Dockerfile needs
+    # no extra tooling for this probe.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
+    container_name: breast-cancer-web
+
+    # nginx serves the built SPA on :80 and reverse-proxies /api/ to the
+    # backend service, so the browser stays same-origin and the API needs no
+    # CORS middleware.
+    ports:
+      - "3000:80"
+
+    # Wait for the model to finish loading before accepting traffic.
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    restart: unless-stopped
